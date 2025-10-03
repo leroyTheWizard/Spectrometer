@@ -86,7 +86,7 @@ struct SpectrometerContainerView: View {
     private let splitGap: CGFloat = 40
 
     var body: some View {
-        ZStack {
+        VStack {
             // Kein Hintergrund im Container, nur die beiden Panels
             ExamplePanelView()
                 .frame(width: 110, height: mainPanelHeight)
