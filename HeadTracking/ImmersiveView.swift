@@ -3,45 +3,10 @@ import RealityKit
 import ARKit
 
 final class SpectrometerViewModel: ObservableObject {
-    enum State { case collapsedIdle, expanding, expanded, splitting, split }
-    @Published var state: State = .collapsedIdle
+    @Published var showSpectrometer: Bool = false
 
-    // Gaze-Tracking für Idle-Rückführung
-    @Published var isGazingMain: Bool = false
-    @Published var isGazingCollapsed: Bool = false
-
-    private var idleWorkItem: DispatchWorkItem?
-    let idleDuration: TimeInterval = 2.0
-
-    func setGazeMain(_ gazing: Bool) {
-        isGazingMain = gazing
-        rescheduleIdleIfNeeded()
-    }
-
-    func setGazeCollapsed(_ gazing: Bool) {
-        isGazingCollapsed = gazing
-        rescheduleIdleIfNeeded()
-    }
-
-    private func rescheduleIdleIfNeeded() {
-        // Wenn Blick auf einem der Fenster liegt, Timer abbrechen
-        if isGazingMain || isGazingCollapsed {
-            idleWorkItem?.cancel()
-            idleWorkItem = nil
-            return
-        }
-        // Nur in expanded/split zurückfallen
-        guard state == .expanded || state == .split else { return }
-
-        idleWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            if !(self.isGazingMain || self.isGazingCollapsed) && (self.state == .expanded || self.state == .split) {
-                self.state = .collapsedIdle
-            }
-        }
-        idleWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + idleDuration, execute: work)
+    func setGaze(onCollapsed gazing: Bool) {
+        showSpectrometer = gazing
     }
 }
 
@@ -83,175 +48,95 @@ struct SpectrometerContainerView: View {
 
     private let mainPanelHeight: CGFloat = 700
     private let collapsedPanelHeight: CGFloat = 110
-    private let splitGap: CGFloat = 40
 
     var body: some View {
         VStack {
-            // Kein Hintergrund im Container, nur die beiden Panels
-            ExamplePanelView()
-                .frame(width: 110, height: mainPanelHeight)
+            ZStack(alignment: .bottom) {
+                if vm.showSpectrometer {
+                    Spectrometer()
+                        .frame(width: 110, height: mainPanelHeight)
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.9, anchor: .bottom).combined(with: .opacity),
+                                removal: .scale(scale: 0.9, anchor: .bottom).combined(with: .opacity)
+                            )
+                        )
+                } else {
+                    Color.clear
+                        .frame(width: 110, height: mainPanelHeight)
+                }
+            }
+            .animation(.easeInOut(duration: 0.55), value: vm.showSpectrometer)
 
-            CollapsedSpectrometerView()
+            FrequencyCategorie()
                 .frame(width: 110, height: collapsedPanelHeight)
         }
-        // Container groß genug, damit nichts abgeschnitten wird
-        .frame(width: 110, height: mainPanelHeight + splitGap + collapsedPanelHeight)
-        // Keine Clips/Masken am Container
+        .frame(width: 110, height: mainPanelHeight + collapsedPanelHeight)
     }
 }
 
 // MARK: - SwiftUI Panel mit custom spectrometer-style slider und Glas-Hintergrund
-struct ExamplePanelView: View {
+struct Spectrometer: View {
     @EnvironmentObject private var vm: SpectrometerViewModel
     @State private var value: Double = 0.5
-    @State private var appear: Bool = false
 
     private let mainPanelHeight: CGFloat = 700
-    private let collapsedPanelHeight: CGFloat = 110
-    private let splitGap: CGFloat = 40
-    private var splitOffsetY: CGFloat {
-        (vm.state == .splitting || vm.state == .split) ? -((mainPanelHeight/2 + splitGap + collapsedPanelHeight/2)/2) : 0
-    }
 
     var body: some View {
         ZStack {
-                ZStack {
-                    SpectrometerSlider(value: $value)
-                        .padding(20)
-                }
-                .opacity(appear ? 1 : 0)
-                .animation(.easeInOut(duration: 0.6), value: appear)
-                .offset(y: splitOffsetY)
-                .animation(.easeInOut(duration: 0.5), value: vm.state)
-                .onHover { hovering in
-                    vm.setGazeMain(hovering)
-                }
-                .onAppear {
-                    if vm.state != .collapsedIdle {
-                        appear = true
-                    }
-                }
-                .task(id: vm.state) {
-                    switch vm.state {
-                    case .expanding:
-                        appear = true
-                        try? await Task.sleep(nanoseconds: 600_000_000)
-                        if vm.state == .expanding {
-                            vm.state = .expanded
-                        }
-                    case .expanded:
-                        try? await Task.sleep(nanoseconds: 100_000_000)
-                        if vm.state == .expanded {
-                            vm.state = .splitting
-                        }
-                    case .splitting:
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        if vm.state == .splitting {
-                            vm.state = .split
-                        }
-                    case .collapsedIdle:
-                        appear = false
-                    case .split:
-                        break
-                    }
-                }
+            SpectrometerSlider(value: $value)
+                .padding(20)
                 .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 28))
                 .clipShape(RoundedRectangle(cornerRadius: 28))
                 .shadow(radius: 12)
-                if vm.state == .collapsedIdle {
-                    // Im Idle-State bleibt das große Fenster unsichtbar
-                    Color.clear
-                } else {}
-            }
-        // Wichtig: Wenn collapsed, darf dieses (große) Attachment keine Events abfangen
-        .allowsHitTesting(vm.state != .collapsedIdle)
-        .accessibilityHidden(vm.state == .collapsedIdle)
+#if targetEnvironment(simulator)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    vm.setGaze(onCollapsed: false)
+                }
+#endif
+        }
     }
 }
 
-struct CollapsedSpectrometerView: View {
+struct FrequencyCategorie: View {
     @EnvironmentObject private var vm: SpectrometerViewModel
-    @State private var isHovering = false
-    @State private var dwellWorkItem: DispatchWorkItem?
 
-    private let dwellDuration: TimeInterval = 0.8
-
-    private let mainPanelHeight: CGFloat = 700
     private let collapsedPanelHeight: CGFloat = 110
-    private let splitGap: CGFloat = 40
-
-    private var splitOffsetY: CGFloat {
-        (vm.state == .splitting || vm.state == .split) ? ((mainPanelHeight/2 + splitGap + collapsedPanelHeight/2)/2) : 0
-    }
 
     var body: some View {
-        Group {
-            // Sichtbar in collapsedIdle und im finalen split-Zustand
-            if vm.state == .collapsedIdle || vm.state == .split || vm.state == .splitting {
-                ZStack {
-                    // Hintergrund: standard glass
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(.clear)
-                        .glassBackgroundEffect()
+        ZStack {
+            // Hintergrund: standard glass
+            RoundedRectangle(cornerRadius: 22)
+                .fill(.clear)
+                .glassBackgroundEffect()
 
-                    // Inhalt: "GAMMA RAYS" + konzentrische Linien (vereinfachte Darstellung)
-                    ZStack {
-                        ForEach(0..<6, id: \.self) { i in
-                            Circle()
-                                .stroke(Color.white.opacity(0.35 - Double(i) * 0.04), lineWidth: 1)
-                                .scaleEffect(0.35 + CGFloat(i) * 0.1)
-                                .blur(radius: i == 0 ? 0 : 0.2)
-                        }
-                        Text("GAMMA\nRAYS")
-                            .multilineTextAlignment(.center)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
-                    }
-                    .padding(10)
+            // Inhalt: "GAMMA RAYS" + konzentrische Linien (vereinfachte Darstellung)
+            ZStack {
+                ForEach(0..<6, id: \.self) { i in
+                    Circle()
+                        .stroke(Color.white.opacity(0.35 - Double(i) * 0.04), lineWidth: 1)
+                        .scaleEffect(0.35 + CGFloat(i) * 0.1)
+                        .blur(radius: i == 0 ? 0 : 0.2)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 22))
-                .offset(y: splitOffsetY)
-                .animation(.easeInOut(duration: 0.5), value: vm.state)
-                .onHover { hovering in
-                    isHovering = hovering
-                    vm.setGazeCollapsed(hovering)
-                    if hovering {
-                        startDwell()
-                    } else {
-                        cancelDwell()
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if vm.state == .collapsedIdle {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            vm.state = .expanding
-                        }
-                    }
-                }
-            } else {
-                Color.clear
+                Text("GAMMA\nRAYS")
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
             }
+            .padding(10)
         }
-    }
-
-    private func startDwell() {
-        cancelDwell()
-        let work = DispatchWorkItem {
-            if isHovering && vm.state == .collapsedIdle {
-                withAnimation(.easeInOut(duration: 0.6)) {
-                    vm.state = .expanding
-                }
-            }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .onHover { hovering in
+            vm.setGaze(onCollapsed: hovering)
         }
-        dwellWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + dwellDuration, execute: work)
-    }
-
-    private func cancelDwell() {
-        dwellWorkItem?.cancel()
-        dwellWorkItem = nil
+#if targetEnvironment(simulator)
+        .onTapGesture {
+            vm.setGaze(onCollapsed: true)
+        }
+#endif
+        .contentShape(Rectangle())
     }
 }
 
@@ -304,11 +189,22 @@ struct SpectrometerSlider: View {
                             .position(x: trackRect.midX, y: trackRect.midY)
                     )
 
-                // Unsichtbarer, aber interaktiver Slider (drehen)
-                VerticalSlider(value: $value)
+                // Interaktionsfläche mit Drag-Geste (keine Rotation nötig)
+                Rectangle()
+                    .fill(Color.clear)
                     .frame(width: trackRect.width, height: trackRect.height)
                     .position(x: trackRect.midX, y: trackRect.midY)
-                    .opacity(0.01)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { gesture in
+                                let locationY = gesture.location.y
+                                let clampedY = min(max(locationY, trackRect.minY), trackRect.maxY)
+                                let t = (clampedY - trackRect.minY) / (trackRect.height)
+                                let newValue = Double(1.0 - t)
+                                self.value = min(max(newValue, 0.0), 1.0)
+                            }
+                    )
 
                 // Knopf-Position basierend auf value (oben = 1, unten = 0)
                 let yRange = (trackRect.minY + knobRadius) ... (trackRect.maxY - knobRadius)
