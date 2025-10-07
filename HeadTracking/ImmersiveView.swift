@@ -57,8 +57,8 @@ struct SpectrometerContainerView: View {
                         .frame(width: 110, height: mainPanelHeight)
                         .transition(
                             .asymmetric(
-                                insertion: .scale(scale: 0.9, anchor: .bottom).combined(with: .opacity),
-                                removal: .scale(scale: 0.9, anchor: .bottom).combined(with: .opacity)
+                                insertion: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity),
+                                removal: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity)
                             )
                         )
                 } else {
@@ -66,7 +66,7 @@ struct SpectrometerContainerView: View {
                         .frame(width: 110, height: mainPanelHeight)
                 }
             }
-            .animation(.easeInOut(duration: 0.55), value: vm.showSpectrometer)
+            .animation(.easeInOut(duration: 0.35), value: vm.showSpectrometer)
 
             FrequencyCategorie()
                 .frame(width: 110, height: collapsedPanelHeight)
