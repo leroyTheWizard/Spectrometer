@@ -2,16 +2,29 @@ import SwiftUI
 import RealityKit
 import ARKit
 
-final class SpectrometerViewModel: ObservableObject {
-    @Published var showSpectrometer: Bool = false
+@Observable
+final class SpectrometerViewModel {
+    var showSpectrometer: Bool = false
+    var sliderValue: Double = 0.5 // 0 = dunkel (S/W), 1 = hell (farbig)
+    var tintAmount: Double = 0.0   // 0..1, Stärke der Farbtönung
+
+    // Mapping für globale Effekte
+    var colorSaturation: Double { 1.0 - sliderValue } // unten = S/W, oben = farbig
+    var overlayOpacity: Double { tintAmount * 0.6 }   // kräftigere Tönung fürs Debuggen
 
     func setGaze(onCollapsed gazing: Bool) {
         showSpectrometer = gazing
     }
+    
+    var isDragging = false
 }
 
 struct ImmersiveView: View {
-    @StateObject private var vm = SpectrometerViewModel()
+    @State private var largeSphere = ModelEntity.init(mesh: .generateSphere(radius: 30), materials: [SimpleMaterial(color: .clear, isMetallic: false)])
+    @State private var vm = SpectrometerViewModel()
+    
+    @State private var timer: Timer?
+    @State private var focusedInColorSpectrum = false
 
     // Ein Entity als 2D-Container für beide Zustände (kein Hintergrund, kein Clipping)
     private let containerPanel = Entity()
@@ -25,7 +38,7 @@ struct ImmersiveView: View {
 
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
             headAnchor.addChild(containerPanel)
-            containerPanel.setPosition([0.53, 0.0, -0.6], relativeTo: headAnchor)
+            containerPanel.setPosition([0.2, 0.0, -0.3], relativeTo: headAnchor)
 
             // ⇨ Single Attachment für beide Fenster (kein Container-Hintergrund)
             if let containerEntity = attachments.entity(for: "spectrometer-container") {
@@ -33,28 +46,149 @@ struct ImmersiveView: View {
                 containerEntity.components.set(InputTargetComponent())
                 containerPanel.addChild(containerEntity)
             }
+            
+            largeSphere.components.set(OpacityComponent.init(opacity: Float(0.65)))
+            print(largeSphere.components[ModelComponent.self]?.materials)
+            largeSphere.scale *= .init(x: -1, y: 1, z: 1) // make it point inward
+            content.add(largeSphere)
         } attachments: {
             Attachment(id: "spectrometer-container") {
                 SpectrometerContainerView()
-                    .environmentObject(vm)
-                    .frame(width: 110, height: 850) // groß genug für beide Panels (700 + 40 + 110)
+                    .environment(vm)
+                    .frame(width: 55, height: 850-350) // groß genug für beide Panels (700 + 40 + 110)
             }
         }
+        .saturation(vm.colorSaturation)
+        .overlay(
+            Color.red
+                .opacity(vm.overlayOpacity)
+                .blendMode(.multiply)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        )
+        .animation(.easeInOut(duration: 0.35), value: vm.colorSaturation)
+        .animation(.easeInOut(duration: 0.35), value: vm.overlayOpacity)
+        .onChange(of: vm.sliderValue) { _, newValue in
+            print("asdf ", newValue)
+//            largeSphere.components[OpacityComponent.self]?.opacity = Float(newValue)
+            
+            guard let mesh = largeSphere.model?.mesh else {
+                print("could not find mesh from large sphere")
+                return
+            }
+            
+            if focusedInColorSpectrum {
+//                timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false, block: { _ in
+//                    if vm.isDragging {
+                        setSphereVisibleColorAppearance(value: Float(newValue))
+//                    }
+//                })
+            } else {
+                setSphereVisibility(value: Float(newValue))
+            }
+        }
+    }
+    
+    func setSphereVisibleColorAppearance(value newValue: Float) {
+        guard let mesh = largeSphere.model?.mesh else {
+            print("could not find mesh from large sphere")
+            return
+        }
+
+        switch newValue {
+        case 0.4..<0.4333:
+            print("is now red")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .red, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.4333..<0.4666:
+            print("is now orange")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .orange, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.4666..<0.5:
+            print("is now yellow")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .yellow, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.5..<0.5333:
+            print("is now blue")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .blue, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.5333..<0.5666:
+            print("is now green")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .green, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.5666..<0.6:
+            print("is now purple")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .purple, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        default:
+            print("now out again, focus out")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+            focusedInColorSpectrum = false
+        }
+    }
+    
+    func setSphereVisibility(value newValue: Float) {
+        guard let mesh = largeSphere.model?.mesh else {
+            print("could not find mesh from large sphere")
+            return
+        }
+
+        switch newValue {
+        case 0.0..<0.2:
+            print("1 rest no map")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+            focusedInColorSpectrum = false
+        case 0.2..<0.4:
+            print("2 rest no map")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+            focusedInColorSpectrum = false
+        case 0.4..<0.6:
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .clear, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+
+
+            print("3 TODO: now map 0...0.2 to 0 to 100") // the mapped mapping
+            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false, block: { _ in
+                print("after 1 sec change scale")
+                
+                focusedInColorSpectrum = true
+                // TODO: change color based on the mapped mapping
+                if vm.isDragging {
+                    setSphereVisibleColorAppearance(value: Float(newValue))
+                }
+            })
+        case 0.6..<0.8:
+            print("4 rest do not map")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+            focusedInColorSpectrum = false
+        case 0.8...1.0:
+            print("5 rest do not map")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+            focusedInColorSpectrum = false
+        default: break
+        }
+
+
     }
 }
 
 struct SpectrometerContainerView: View {
-    @EnvironmentObject private var vm: SpectrometerViewModel
+    @Environment(SpectrometerViewModel.self) private var vm
 
-    private let mainPanelHeight: CGFloat = 700
-    private let collapsedPanelHeight: CGFloat = 110
+    private let mainPanelHeight: CGFloat = 350
+    private let collapsedPanelHeight: CGFloat = 55
 
     var body: some View {
         VStack {
             ZStack(alignment: .bottom) {
                 if vm.showSpectrometer {
                     Spectrometer()
-                        .frame(width: 110, height: mainPanelHeight)
+                        .frame(width: collapsedPanelHeight, height: mainPanelHeight)
                         .transition(
                             .asymmetric(
                                 insertion: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity),
@@ -63,32 +197,40 @@ struct SpectrometerContainerView: View {
                         )
                 } else {
                     Color.clear
-                        .frame(width: 110, height: mainPanelHeight)
+                        .frame(width: collapsedPanelHeight, height: mainPanelHeight)
                 }
             }
             .animation(.easeInOut(duration: 0.35), value: vm.showSpectrometer)
 
             FrequencyCategorie()
-                .frame(width: 110, height: collapsedPanelHeight)
+                .frame(width: collapsedPanelHeight, height: collapsedPanelHeight)
         }
-        .frame(width: 110, height: mainPanelHeight + collapsedPanelHeight)
+        .frame(width: collapsedPanelHeight, height: mainPanelHeight + collapsedPanelHeight)
     }
 }
 
 // MARK: - SwiftUI Panel mit custom spectrometer-style slider und Glas-Hintergrund
 struct Spectrometer: View {
-    @EnvironmentObject private var vm: SpectrometerViewModel
-    @State private var value: Double = 0.5
+    @Environment(SpectrometerViewModel.self) private var vm
 
     private let mainPanelHeight: CGFloat = 700
 
     var body: some View {
+        @Bindable var vm = self.vm
         ZStack {
-            SpectrometerSlider(value: $value)
+            SpectrometerSlider(value: $vm.sliderValue)
                 .padding(20)
                 .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 28))
                 .clipShape(RoundedRectangle(cornerRadius: 28))
                 .shadow(radius: 12)
+            VStack {
+                Spacer()
+                Text(String(format: "Slider: %.2f", vm.sliderValue))
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                    .padding(.bottom, 8)
+            }
+            .allowsHitTesting(false)
 #if targetEnvironment(simulator)
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -100,7 +242,7 @@ struct Spectrometer: View {
 }
 
 struct FrequencyCategorie: View {
-    @EnvironmentObject private var vm: SpectrometerViewModel
+    @Environment(SpectrometerViewModel.self) private var vm
 
     private let collapsedPanelHeight: CGFloat = 110
 
@@ -135,12 +277,16 @@ struct FrequencyCategorie: View {
         .onTapGesture {
             vm.setGaze(onCollapsed: true)
         }
+        .onLongPressGesture {
+            vm.tintAmount = (vm.tintAmount == 0) ? 1 : 0
+        }
 #endif
         .contentShape(Rectangle())
     }
 }
 
 struct SpectrometerSlider: View {
+    @Environment(SpectrometerViewModel.self) private var vm
     @Binding var value: Double
 
     var body: some View {
@@ -203,7 +349,13 @@ struct SpectrometerSlider: View {
                                 let t = (clampedY - trackRect.minY) / (trackRect.height)
                                 let newValue = Double(1.0 - t)
                                 self.value = min(max(newValue, 0.0), 1.0)
+                                print("still dragging")
+                                vm.isDragging = true
                             }
+                            .onEnded({ _ in
+                                print("drag ended")
+                                vm.isDragging = false
+                            })
                     )
 
                 // Knopf-Position basierend auf value (oben = 1, unten = 0)
@@ -250,29 +402,5 @@ struct SineWaveShape: Shape {
             path.addLine(to: CGPoint(x: x, y: y))
         }
         return path
-    }
-}
-
-struct VerticalSlider: View {
-    @Binding var value: Double
-    var range: ClosedRange<Double> = 0...1
-    var step: Double? = nil
-
-    @ViewBuilder
-    private var baseSlider: some View {
-        if let step, step > 0 {
-            Slider(value: $value, in: range, step: step)
-        } else {
-            Slider(value: $value, in: range)
-        }
-    }
-
-    var body: some View {
-        // Trick: erst breite festlegen, dann rotieren, dann Ziel-Frame setzen
-        baseSlider
-            .frame(width: 260)            // Länge der "Bahn" vor der Rotation
-            .rotationEffect(.degrees(-90))
-            .frame(width: 44, height: 260) // finaler vertikaler Frame
-            .contentShape(Rectangle())     // zuverlässigere Hit-Tests nach Rotation
     }
 }
