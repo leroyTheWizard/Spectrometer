@@ -36,19 +36,20 @@ struct ImmersiveView: View {
 
     var body: some View {
         RealityView { content, attachments in
-            // Head-locked Anchor (kontinuierlich, an den Kopf gebunden)
-            let headAnchor = AnchorEntity(.head)
-            headAnchor.anchoring.trackingMode = .continuous
-            content.add(headAnchor)
-            
-            // HandTracking
+            // HandTracking root
             content.add(self.model.rootEntity)
             self.model.setUpChildEntities()
             contentHolder = content
 
+            // Anker am rechten Zeigefinger (Index Tip)
+            let indexTip = self.model.getJoint("rightIndexTip")
+
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
-            headAnchor.addChild(containerPanel)
-            containerPanel.setPosition([0.2, 0.0, -0.6], relativeTo: headAnchor)
+            indexTip.addChild(containerPanel)
+            // Leichter Offset, damit das Panel nicht im Finger steckt
+            containerPanel.setPosition([0.03, 0.0, 0.0], relativeTo: indexTip)
+            // Optional: lokale Ausrichtung setzen, falls gewünscht
+            // containerPanel.setOrientation(simd_quatf(angle: .pi/2, axis: [0,1,0]), relativeTo: indexTip)
 
             // ⇨ Single Attachment für beide Fenster (kein Container-Hintergrund)
             if let containerEntity = attachments.entity(for: "spectrometer-container") {
@@ -56,7 +57,7 @@ struct ImmersiveView: View {
                 containerEntity.components.set(InputTargetComponent())
                 containerPanel.addChild(containerEntity)
             }
-            
+
             largeSphere.components.set(OpacityComponent.init(opacity: Float(0.5)))
             print(largeSphere.components[ModelComponent.self]?.materials)
             largeSphere.scale *= .init(x: -1, y: 1, z: 1) // make it point inward
