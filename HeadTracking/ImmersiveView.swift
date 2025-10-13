@@ -23,11 +23,16 @@ final class SpectrometerViewModel {
 struct ImmersiveView: View {
     @State private var largeSphere = ModelEntity.init(mesh: .generateSphere(radius: 30), materials: [SimpleMaterial(color: .clear, isMetallic: false)])
     @State private var vm = SpectrometerViewModel()
-    
+
     @State private var timer: Timer?
 
     // Ein Entity als 2D-Container für beide Zustände (kein Hintergrund, kein Clipping)
     private let containerPanel = Entity()
+    
+    // HandTracking
+    var model: AppModel = .init()
+    @State var sceneContent: Entity?
+    @State var contentHolder: (any RealityViewContentProtocol)?
 
     var body: some View {
         RealityView { content, attachments in
@@ -35,6 +40,11 @@ struct ImmersiveView: View {
             let headAnchor = AnchorEntity(.head)
             headAnchor.anchoring.trackingMode = .continuous
             content.add(headAnchor)
+            
+            // HandTracking
+            content.add(self.model.rootEntity)
+            self.model.setUpChildEntities()
+            contentHolder = content
 
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
             headAnchor.addChild(containerPanel)
@@ -58,6 +68,11 @@ struct ImmersiveView: View {
                     //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
         }
+        //HandTracking
+        .task { self.model.run() }
+        .task { self.model.observeAuthorizationStatus() }
+        .upperLimbVisibility(.hidden)
+        
         .saturation(vm.colorSaturation)
         .overlay(
             Color.red

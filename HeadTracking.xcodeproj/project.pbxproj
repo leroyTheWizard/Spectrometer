@@ -185,6 +185,8 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Diese App benötigt Zugriff auf die Kamera, um die Umgebung zu erfassen und Inhalte korrekt zu platzieren.";
+				INFOPLIST_KEY_NSHandsTrackingUsageDescription = "Diese App benötigt Hand-Tracking, um Interaktionen mit den Händen zu erkennen und darzustellen.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -217,6 +219,8 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Diese App benötigt Zugriff auf die Kamera, um die Umgebung zu erfassen und Inhalte korrekt zu platzieren.";
+				INFOPLIST_KEY_NSHandsTrackingUsageDescription = "Diese App benötigt Hand-Tracking, um Interaktionen mit den Händen zu erkennen und darzustellen.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
