@@ -17,6 +17,7 @@ final class SpectrometerViewModel {
     }
     
     var isDragging = false
+    var focusedInColorSpectrum: Bool = false
 }
 
 struct ImmersiveView: View {
@@ -24,7 +25,6 @@ struct ImmersiveView: View {
     @State private var vm = SpectrometerViewModel()
     
     @State private var timer: Timer?
-    @State private var focusedInColorSpectrum = false
 
     // Ein Entity als 2D-Container für beide Zustände (kein Hintergrund, kein Clipping)
     private let containerPanel = Entity()
@@ -38,7 +38,7 @@ struct ImmersiveView: View {
 
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
             headAnchor.addChild(containerPanel)
-            containerPanel.setPosition([0.2, 0.0, -0.3], relativeTo: headAnchor)
+            containerPanel.setPosition([0.2, 0.0, -0.6], relativeTo: headAnchor)
 
             // ⇨ Single Attachment für beide Fenster (kein Container-Hintergrund)
             if let containerEntity = attachments.entity(for: "spectrometer-container") {
@@ -47,7 +47,7 @@ struct ImmersiveView: View {
                 containerPanel.addChild(containerEntity)
             }
             
-            largeSphere.components.set(OpacityComponent.init(opacity: Float(0.65)))
+            largeSphere.components.set(OpacityComponent.init(opacity: Float(0.5)))
             print(largeSphere.components[ModelComponent.self]?.materials)
             largeSphere.scale *= .init(x: -1, y: 1, z: 1) // make it point inward
             content.add(largeSphere)
@@ -55,7 +55,7 @@ struct ImmersiveView: View {
             Attachment(id: "spectrometer-container") {
                 SpectrometerContainerView()
                     .environment(vm)
-                    .frame(width: 55, height: 850-350) // groß genug für beide Panels (700 + 40 + 110)
+                    //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
         }
         .saturation(vm.colorSaturation)
@@ -77,7 +77,7 @@ struct ImmersiveView: View {
                 return
             }
             
-            if focusedInColorSpectrum {
+            if vm.focusedInColorSpectrum {
 //                timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false, block: { _ in
 //                    if vm.isDragging {
                         setSphereVisibleColorAppearance(value: Float(newValue))
@@ -96,35 +96,35 @@ struct ImmersiveView: View {
         }
 
         switch newValue {
-        case 0.4..<0.4333:
-            print("is now red")
+        case 0.35..<0.40:
+            print("spectrum: red")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .red, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-        case 0.4333..<0.4666:
-            print("is now orange")
+        case 0.40..<0.45:
+            print("spectrum: orange")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .orange, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-        case 0.4666..<0.5:
-            print("is now yellow")
+        case 0.45..<0.50:
+            print("spectrum: yellow")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .yellow, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-        case 0.5..<0.5333:
-            print("is now blue")
-            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .blue, isMetallic: false)])
-            largeSphere.components[ModelComponent.self] = newModelComponent
-        case 0.5333..<0.5666:
-            print("is now green")
+        case 0.50..<0.55:
+            print("spectrum: green")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .green, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-        case 0.5666..<0.6:
-            print("is now purple")
+        case 0.55..<0.60:
+            print("spectrum: blue")
+            let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .blue, isMetallic: false)])
+            largeSphere.components[ModelComponent.self] = newModelComponent
+        case 0.60..<0.65:
+            print("spectrum: purple")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .purple, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
         default:
-            print("now out again, focus out")
+            print("above spectrum — focus out")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-            focusedInColorSpectrum = false
+            vm.focusedInColorSpectrum = false
         }
     }
     
@@ -139,12 +139,12 @@ struct ImmersiveView: View {
             print("1 rest no map")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-            focusedInColorSpectrum = false
+            vm.focusedInColorSpectrum = false
         case 0.2..<0.4:
             print("2 rest no map")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-            focusedInColorSpectrum = false
+            vm.focusedInColorSpectrum = false
         case 0.4..<0.6:
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .clear, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
@@ -154,9 +154,10 @@ struct ImmersiveView: View {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false, block: { _ in
                 print("after 1 sec change scale")
                 
-                focusedInColorSpectrum = true
+                vm.focusedInColorSpectrum = true
                 // TODO: change color based on the mapped mapping
                 if vm.isDragging {
+                    
                     setSphereVisibleColorAppearance(value: Float(newValue))
                 }
             })
@@ -164,12 +165,12 @@ struct ImmersiveView: View {
             print("4 rest do not map")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-            focusedInColorSpectrum = false
+            vm.focusedInColorSpectrum = false
         case 0.8...1.0:
             print("5 rest do not map")
             let newModelComponent = ModelComponent(mesh: mesh, materials: [SimpleMaterial(color: .black, isMetallic: false)])
             largeSphere.components[ModelComponent.self] = newModelComponent
-            focusedInColorSpectrum = false
+            vm.focusedInColorSpectrum = false
         default: break
         }
 
@@ -180,34 +181,48 @@ struct ImmersiveView: View {
 struct SpectrometerContainerView: View {
     @Environment(SpectrometerViewModel.self) private var vm
 
-    private let mainPanelHeight: CGFloat = 350
-    private let collapsedPanelHeight: CGFloat = 55
+    private let mainPanelHeight: CGFloat = 700
+    private let collapsedPanelHeight: CGFloat = 140
 
     var body: some View {
-        VStack {
-            ZStack(alignment: .bottom) {
-                if vm.showSpectrometer {
-                    Spectrometer()
-                        .frame(width: collapsedPanelHeight, height: mainPanelHeight)
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity),
-                                removal: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity)
-                            )
-                        )
-                } else {
-                    Color.clear
-                        .frame(width: collapsedPanelHeight, height: mainPanelHeight)
-                }
+        HStack{
+            TimelineView(.animation) { context in
+                let time = context.date.timeIntervalSinceReferenceDate
+                let speed = lerp(from: 0.2, to: 2.0, t: vm.sliderValue) // turns per second
+                let phase = CGFloat(time * speed * 2 * .pi)
+                SineWaveShape(
+                    periods: CGFloat(lerp(from: 0.5, to: 12.0, t: vm.sliderValue)),
+                    phase: phase
+                )
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                .frame(width: 80, height: 700)
             }
-            .animation(.easeInOut(duration: 0.35), value: vm.showSpectrometer)
-
-            FrequencyCategorie()
-                .frame(width: collapsedPanelHeight, height: collapsedPanelHeight)
-        }
-        .frame(width: collapsedPanelHeight, height: mainPanelHeight + collapsedPanelHeight)
-    }
+            
+            VStack {
+                Group {
+                    if vm.showSpectrometer {
+                        Spectrometer()
+                            .frame(width: collapsedPanelHeight, height: mainPanelHeight)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity),
+                                    removal: .scale(scale: 0.5, anchor: .bottom).combined(with: .opacity)
+                                )
+                            )
+                    } else {
+                        Color.clear
+                            .frame(width: collapsedPanelHeight, height: mainPanelHeight)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.35), value: vm.showSpectrometer)
+                
+                FrequencyCategorie()
+                    .frame(width: collapsedPanelHeight, height: collapsedPanelHeight)
+            }
+            .frame(width: collapsedPanelHeight, height: mainPanelHeight + collapsedPanelHeight)
+        }}
 }
+    
 
 // MARK: - SwiftUI Panel mit custom spectrometer-style slider und Glas-Hintergrund
 struct Spectrometer: View {
@@ -292,10 +307,10 @@ struct SpectrometerSlider: View {
     var body: some View {
         GeometryReader { geo in
             let inset: CGFloat = 24
-            let trackWidth: CGFloat = 80
+            let trackWidth: CGFloat = 52
             let trackHeight: CGFloat = geo.size.height - inset * 2
-            let trackCorner: CGFloat = 26
-            let knobDiameter: CGFloat = 64
+            let trackCorner: CGFloat = 60
+            let knobDiameter: CGFloat = 44
             let knobRadius: CGFloat = knobDiameter / 2
             let centerX: CGFloat = geo.size.width / 2
             let trackRect = CGRect(
@@ -308,16 +323,20 @@ struct SpectrometerSlider: View {
             ZStack {
                 // Dunkler, schmaler Slot
                 RoundedRectangle(cornerRadius: trackCorner)
-                    .fill(Color.black.opacity(0.7))
+                    .fill(Color.black.opacity(0.8))
                     .frame(width: trackRect.width, height: trackRect.height)
                     .position(x: trackRect.midX, y: trackRect.midY)
                     .overlay(
                         // Glanzband in der Mitte (vertikaler Verlauf)
                         LinearGradient(
-                            gradient: Gradient(stops: [
+                            gradient: Gradient(stops: vm.focusedInColorSpectrum ? [
                                 .init(color: .clear, location: 0.35),
-                                .init(color: .white.opacity(0.35), location: 0.5),
+                                .init(color: .white.opacity(0.5), location: 0.5),
                                 .init(color: .clear, location: 0.65)
+                            ] : [
+                                .init(color: .clear, location: 0.45),
+                                .init(color: .white.opacity(0.5), location: 0.5),
+                                .init(color: .clear, location: 0.55)
                             ]),
                             startPoint: .top,
                             endPoint: .bottom
@@ -328,11 +347,43 @@ struct SpectrometerSlider: View {
                         .position(x: trackRect.midX, y: trackRect.midY)
                     )
                     .overlay(
-                        // Sine-Wave im Slot
-                        SineWaveShape(periods: 6)
+                        Group {
+                            if vm.focusedInColorSpectrum {
+                                // Farbverlauf exakt nur im Bereich 0.35..0.65 (ohne Mask), breiter für seitliches Bleeding
+                                let bandHeight = trackRect.height * 0.30 // 0.65 - 0.35 = 0.30
+                                let bandCenterY = trackRect.minY + trackRect.height * 0.50 // Mitte bei 0.5
+                                LinearGradient(
+                                    colors: [
+                                        Color.purple.opacity(0.5),
+                                        Color.blue.opacity(0.5),
+                                        Color.green.opacity(0.5),
+                                        Color.yellow.opacity(0.5),
+                                        Color.orange.opacity(0.5),
+                                        Color.red.opacity(0.5)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .blur(radius: 20)
+                                .opacity(0.9)
+                                .frame(width: trackRect.width + 40, height: bandHeight)
+                                .position(x: trackRect.midX, y: bandCenterY)
+                            }
+                        }
+                    )
+                    .overlay(
+                        TimelineView(.animation) { context in
+                            let time = context.date.timeIntervalSinceReferenceDate
+                            let speed = lerp(from: 0.2, to: 2.0, t: vm.sliderValue) // turns per second
+                            let phase = CGFloat(time * speed * 2 * .pi)
+                            SineWaveShape(
+                                periods: CGFloat(lerp(from: 0.5, to: 12.0, t: vm.sliderValue)),
+                                phase: phase
+                            )
                             .stroke(Color.white.opacity(0.35), lineWidth: 1)
                             .frame(width: trackRect.width - 28, height: trackRect.height - 28)
                             .position(x: trackRect.midX, y: trackRect.midY)
+                        }
                     )
 
                 // Interaktionsfläche mit Drag-Geste (keine Rotation nötig)
@@ -384,8 +435,19 @@ struct SpectrometerSlider: View {
     }
 }
 
+@inline(__always)
+func lerp(from a: Double, to b: Double, t: Double) -> Double {
+    return a + (b - a) * t
+}
+
 struct SineWaveShape: Shape {
-    var periods: CGFloat = 6
+    var periods: CGFloat
+    var phase: CGFloat
+
+    var animatableData: CGFloat {
+        get { phase }
+        set { phase = newValue }
+    }
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -398,9 +460,10 @@ struct SineWaveShape: Shape {
         for i in 0...steps {
             let y = rect.minY + CGFloat(i)
             let t = (y - rect.minY) / rect.height
-            let x = midX + sin(t * periods * twoPi) * amplitude
+            let x = midX + sin(t * periods * twoPi + phase) * amplitude
             path.addLine(to: CGPoint(x: x, y: y))
         }
         return path
     }
 }
+
