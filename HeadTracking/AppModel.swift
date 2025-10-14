@@ -98,11 +98,11 @@ class AppModel {
         }
         
         if (touching("rightThumbTip", "leftThumbTip")){
-            colorJoint("rightThumbTip", .red)
-            colorJoint("leftThumbTip", .red)
+            colorJoint("rightThumbTip")
+            colorJoint("leftThumbTip")
         } else{
-            colorJoint("rightThumbTip", .cyan)
-            colorJoint("leftThumbTip", .cyan)
+            colorJoint("rightThumbTip")
+            colorJoint("leftThumbTip")
         }
          
         return 0
@@ -212,15 +212,15 @@ extension AppModel {
     
     
     // Convenience function to change the color of a joint ball
-    func colorJointI(_ jointIndex: Int, _ color: UIColor) {
-        self.majorBalls[jointIndex].components.set(ModelComponent(mesh: .generateSphere(radius: 0.005), materials: [SimpleMaterial(color: color, isMetallic: false)]))
+    func colorJointI(_ jointIndex: Int, _ color: UIColor = .clear) {
+//        self.majorBalls[jointIndex].components.set(ModelComponent(mesh: .generateSphere(radius: 0.005), materials: [UnlitMaterial(color: color)]))
     }
 
-    func colorJoint(_ jointName: String, _ color: UIColor) {
+    func colorJoint(_ jointName: String, _ color: UIColor = .clear) {
         colorJointI(jointMapping[jointName]!, color)
     }
 
-    func colorJoints(_ jointNames: [String], _ color: UIColor) {
+    func colorJoints(_ jointNames: [String], _ color: UIColor = .clear) {
          for jointName in jointNames {
              colorJoint(jointName, color)
          }

@@ -1,10 +1,11 @@
 import SwiftUI
 import RealityKit
+import RealityKitContent
 import ARKit
 
 @Observable
 final class SpectrometerViewModel {
-    var showSpectrometer: Bool = false
+    var showSpectrometer: Bool = true
     var sliderValue: Double = 0.5 // 0 = dunkel (S/W), 1 = hell (farbig)
     var tintAmount: Double = 0.0   // 0..1, Stärke der Farbtönung
 
@@ -28,6 +29,10 @@ struct ImmersiveView: View {
 
     // Ein Entity als 2D-Container für beide Zustände (kein Hintergrund, kein Clipping)
     private let containerPanel = Entity()
+    private let containerPanel2 = Entity()
+    private let containerPanelArm = Entity()
+    
+    @State private var entityHummingbird: Entity?
     
     // HandTracking
     var model: AppModel = .init()
@@ -39,18 +44,25 @@ struct ImmersiveView: View {
             // HandTracking root
             content.add(self.model.rootEntity)
             self.model.setUpChildEntities()
+            //self.model.makeAllJointsInvisible()
             contentHolder = content
 
             // Anker am rechten Zeigefinger (Index Tip)
-            let indexTip = self.model.getJoint("rightIndexTip")
+            let indexTip = self.model.getJoint("rightIndexKnuckle")
+            let rightWrist = self.model.getJoint("rightWrist")
 
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
             indexTip.addChild(containerPanel)
             // Leichter Offset, damit das Panel nicht im Finger steckt
             containerPanel.setPosition([0.03, 0.0, 0.0], relativeTo: indexTip)
             // Optional: lokale Ausrichtung setzen, falls gewünscht
-            // containerPanel.setOrientation(simd_quatf(angle: .pi/2, axis: [0,1,0]), relativeTo: indexTip)
-
+            containerPanel.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
+            
+            indexTip.addChild(containerPanel2)
+            containerPanel2.setPosition([0.03, 0.0, 0.0], relativeTo: indexTip)
+            containerPanel2.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
+            containerPanel2.setOrientation(simd_quatf(angle: .pi/2, axis: [1,0,0]), relativeTo: indexTip)
+            
             // ⇨ Single Attachment für beide Fenster (kein Container-Hintergrund)
             if let containerEntity = attachments.entity(for: "spectrometer-container") {
                 // Wichtig: Input für SwiftUI-Attachments aktivieren
@@ -58,14 +70,48 @@ struct ImmersiveView: View {
                 containerPanel.addChild(containerEntity)
             }
 
+            if let containerEntity2 = attachments.entity(for: "spectrometer-container-2") {
+                // Wichtig: Input für SwiftUI-Attachments aktivieren
+                containerEntity2.components.set(InputTargetComponent())
+//                containerEntity2.components.set(OpacityComponent(opacity: 1))
+                containerPanel2.addChild(containerEntity2)
+            }
+            
+            rightWrist.addChild(containerPanelArm)
+            // TODO: set position to move it more towards elbow
+            // TODO: rotate to appear at the top of elbow
+            
+            if let containerEntityArm = attachments.entity(for: "spectrometer-container-arm") {
+                // Wichtig: Input für SwiftUI-Attachments aktivieren
+                containerEntityArm.components.set(InputTargetComponent())
+                containerPanelArm.addChild(containerEntityArm)
+            }
+            
             largeSphere.components.set(OpacityComponent.init(opacity: Float(0.5)))
             print(largeSphere.components[ModelComponent.self]?.materials)
             largeSphere.scale *= .init(x: -1, y: 1, z: 1) // make it point inward
             content.add(largeSphere)
+            
+            if let exhibitionEntity = try? await Entity(named: "Exhibition", in: realityKitContentBundle), let hummingbirdEntity = exhibitionEntity.findEntity(named: "Hummingbird") {
+                self.entityHummingbird = hummingbirdEntity
+                content.add(exhibitionEntity)
+            }
         } attachments: {
             Attachment(id: "spectrometer-container") {
                 SpectrometerContainerView()
                     .environment(vm)
+                    //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
+            }
+            
+            Attachment(id: "spectrometer-container-2") {
+//                SpectrometerContainerView()
+//                    .environment(vm)
+                    //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
+            }
+            
+            Attachment(id: "spectrometer-container-arm") {
+//                SpectrometerContainerView()
+//                    .environment(vm)
                     //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
         }
@@ -149,6 +195,8 @@ struct ImmersiveView: View {
             print("could not find mesh from large sphere")
             return
         }
+        
+        entityHummingbird?.components[OpacityComponent.self]?.opacity = (0.2..<0.4).contains(newValue) ? 1 : 0
 
         switch newValue {
         case 0.0..<0.2:
@@ -302,7 +350,7 @@ struct FrequencyCategorie: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .onHover { hovering in
-            vm.setGaze(onCollapsed: hovering)
+//            vm.setGaze(onCollapsed: hovering)
         }
 #if targetEnvironment(simulator)
         .onTapGesture {
