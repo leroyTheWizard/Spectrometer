@@ -81,11 +81,13 @@ struct ImmersiveView: View {
             }
             
             rightWrist.addChild(containerPanelArm)
-            containerPanelArm.setPosition([0.2, 0.0, 0.0], relativeTo: indexTip)
-            // Optional: lokale Ausrichtung setzen, falls gewünscht
-            containerPanelArm.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
-            //
-            //containerPanelArm.components.set(BillboardComponent())
+            containerPanelArm.setPosition([0.15, 0.0, 0.0], relativeTo: rightWrist)
+            // Beispiel: Panel um Z drehen, dann um X, beide relativ zum Finger
+            let wristZ = simd_quatf(angle: .pi/2, axis: [0,0,1])
+            let wristX = simd_quatf(angle: .pi/2, axis: [1,0,0])
+            let wristCombined = wristX * wristZ // erst Z, dann X
+            containerPanelArm.setOrientation(wristCombined, relativeTo: rightWrist)
+
             
             if let containerEntityArm = attachments.entity(for: "spectrometer-container-arm") {
                 // Wichtig: Input für SwiftUI-Attachments aktivieren
@@ -250,23 +252,10 @@ struct ImmersiveView: View {
 struct SpectrometerContainerView: View {
     @Environment(SpectrometerViewModel.self) private var vm
 
-    private let mainPanelHeight: CGFloat = 350
-    private let collapsedPanelHeight: CGFloat = 70
+    private let mainPanelHeight: CGFloat = 340
+    private let collapsedPanelHeight: CGFloat = 40
 
     var body: some View {
-        HStack{
-            TimelineView(.animation) { context in
-                let time = context.date.timeIntervalSinceReferenceDate
-                let speed = lerp(from: 0.2, to: 2.0, t: vm.sliderValue) // turns per second
-                let phase = CGFloat(time * speed * 2 * .pi)
-                SineWaveShape(
-                    periods: CGFloat(lerp(from: 0.5, to: 12.0, t: vm.sliderValue)),
-                    phase: phase
-                )
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                .frame(width: 80, height: 700)
-            }
-            
             VStack {
                 Group {
                     if vm.showSpectrometer {
@@ -283,14 +272,10 @@ struct SpectrometerContainerView: View {
                             .frame(width: collapsedPanelHeight, height: mainPanelHeight)
                     }
                 }
-                .animation(.easeInOut(duration: 0.35), value: vm.showSpectrometer)
-                
-                FrequencyCategorie()
-                    .frame(width: collapsedPanelHeight, height: collapsedPanelHeight)
             }
             .frame(width: collapsedPanelHeight, height: mainPanelHeight + collapsedPanelHeight)
         }}
-}
+
 
 struct WaveContainerView: View {
     @Environment(SpectrometerViewModel.self) private var vm
@@ -326,17 +311,9 @@ struct Spectrometer: View {
         ZStack {
             SpectrometerSlider(value: $vm.sliderValue)
                 .padding(10)
-                .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 14))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .shadow(radius: 14)
-            VStack {
-                Spacer()
-                Text(String(format: "Slider: %.2f", vm.sliderValue))
-                    .font(.caption)
-                    .foregroundStyle(.white)
-                    .padding(.bottom, 8)
-            }
-            .allowsHitTesting(false)
+                .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 60))
+                .clipShape(RoundedRectangle(cornerRadius: 60))
+                .shadow(radius: 60)
 #if targetEnvironment(simulator)
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -397,11 +374,11 @@ struct SpectrometerSlider: View {
 
     var body: some View {
         GeometryReader { geo in
-            let inset: CGFloat = 24
+            let inset: CGFloat = 2
             let trackWidth: CGFloat = 26
             let trackHeight: CGFloat = geo.size.height - inset * 2
             let trackCorner: CGFloat = 60
-            let knobDiameter: CGFloat = 22
+            let knobDiameter: CGFloat = 36
             let knobRadius: CGFloat = knobDiameter / 2
             let centerX: CGFloat = geo.size.width / 2
             let trackRect = CGRect(
@@ -472,7 +449,7 @@ struct SpectrometerSlider: View {
                                 phase: phase
                             )
                             .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                            .frame(width: trackRect.width - 28, height: trackRect.height - 28)
+                            .frame(width: trackRect.width - 2, height: trackRect.height - 4)
                             .position(x: trackRect.midX, y: trackRect.midY)
                         }
                     )
@@ -505,7 +482,8 @@ struct SpectrometerSlider: View {
                 let yPos = CGFloat(1.0 - value) * (yRange.upperBound - yRange.lowerBound) + yRange.lowerBound
 
                 Circle()
-                    .fill(Color.white.opacity(0.95))
+                    .fill(Color.white.opacity(0.7))
+                    .blur(radius: 5)
                     .frame(width: knobDiameter, height: knobDiameter)
                     .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 8)
                     .overlay(
