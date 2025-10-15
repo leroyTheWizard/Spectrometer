@@ -54,14 +54,17 @@ struct ImmersiveView: View {
             // Ein gemeinsamer Container für beide Zustände (2D-Logik)
             indexTip.addChild(containerPanel)
             // Leichter Offset, damit das Panel nicht im Finger steckt
-            containerPanel.setPosition([0.03, 0.0, 0.0], relativeTo: indexTip)
+            containerPanel.setPosition([-0.03, 0.0, 0.0], relativeTo: indexTip)
             // Optional: lokale Ausrichtung setzen, falls gewünscht
             containerPanel.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
             
             indexTip.addChild(containerPanel2)
-            containerPanel2.setPosition([0.03, 0.0, 0.0], relativeTo: indexTip)
-            containerPanel2.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
-            containerPanel2.setOrientation(simd_quatf(angle: .pi/2, axis: [1,0,0]), relativeTo: indexTip)
+            containerPanel2.setPosition([-0.03, 0.00, 0.0], relativeTo: indexTip)
+            // Beispiel: Panel um Z drehen, dann um X, beide relativ zum Finger
+            let rZ = simd_quatf(angle: .pi/2, axis: [0,0,1])
+            let rX = simd_quatf(angle: .pi/2, axis: [1,0,0])
+            let combined = rX * rZ // erst Z, dann X
+            containerPanel2.setOrientation(combined, relativeTo: indexTip)
             
             // ⇨ Single Attachment für beide Fenster (kein Container-Hintergrund)
             if let containerEntity = attachments.entity(for: "spectrometer-container") {
@@ -78,8 +81,11 @@ struct ImmersiveView: View {
             }
             
             rightWrist.addChild(containerPanelArm)
-            // TODO: set position to move it more towards elbow
-            // TODO: rotate to appear at the top of elbow
+            containerPanelArm.setPosition([0.2, 0.0, 0.0], relativeTo: indexTip)
+            // Optional: lokale Ausrichtung setzen, falls gewünscht
+            containerPanelArm.setOrientation(simd_quatf(angle: .pi/2, axis: [0,0,1]), relativeTo: indexTip)
+            //
+            //containerPanelArm.components.set(BillboardComponent())
             
             if let containerEntityArm = attachments.entity(for: "spectrometer-container-arm") {
                 // Wichtig: Input für SwiftUI-Attachments aktivieren
@@ -98,20 +104,20 @@ struct ImmersiveView: View {
             }
         } attachments: {
             Attachment(id: "spectrometer-container") {
-                SpectrometerContainerView()
+                    WaveContainerView()
                     .environment(vm)
                     //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
             
             Attachment(id: "spectrometer-container-2") {
-//                SpectrometerContainerView()
-//                    .environment(vm)
+                    WaveContainerView()
+                    .environment(vm)
                     //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
             
             Attachment(id: "spectrometer-container-arm") {
-//                SpectrometerContainerView()
-//                    .environment(vm)
+                SpectrometerContainerView()
+                   .environment(vm)
                     //.frame(width: 140, height: 850) // groß genug für beide Panels (700 + 40 + 110)
             }
         }
@@ -238,15 +244,14 @@ struct ImmersiveView: View {
         default: break
         }
 
-
     }
 }
 
 struct SpectrometerContainerView: View {
     @Environment(SpectrometerViewModel.self) private var vm
 
-    private let mainPanelHeight: CGFloat = 700
-    private let collapsedPanelHeight: CGFloat = 140
+    private let mainPanelHeight: CGFloat = 350
+    private let collapsedPanelHeight: CGFloat = 70
 
     var body: some View {
         HStack{
@@ -286,22 +291,44 @@ struct SpectrometerContainerView: View {
             .frame(width: collapsedPanelHeight, height: mainPanelHeight + collapsedPanelHeight)
         }}
 }
+
+struct WaveContainerView: View {
+    @Environment(SpectrometerViewModel.self) private var vm
+
+    private let mainPanelHeight: CGFloat = 350
+    private let collapsedPanelHeight: CGFloat = 140
+
+    var body: some View {
+        HStack{
+            TimelineView(.animation) { context in
+                let time = context.date.timeIntervalSinceReferenceDate
+                let speed = lerp(from: 0.2, to: 2.0, t: vm.sliderValue) // turns per second
+                let phase = CGFloat(time * speed * 2 * .pi)
+                SineWaveShape(
+                    periods: CGFloat(lerp(from: 0.5, to: 12.0, t: vm.sliderValue)),
+                    phase: phase
+                )
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                .frame(width: 240, height: 260)
+            }
+        }}
+}
     
 
 // MARK: - SwiftUI Panel mit custom spectrometer-style slider und Glas-Hintergrund
 struct Spectrometer: View {
     @Environment(SpectrometerViewModel.self) private var vm
 
-    private let mainPanelHeight: CGFloat = 700
+    private let mainPanelHeight: CGFloat = 350
 
     var body: some View {
         @Bindable var vm = self.vm
         ZStack {
             SpectrometerSlider(value: $vm.sliderValue)
-                .padding(20)
-                .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 28))
-                .clipShape(RoundedRectangle(cornerRadius: 28))
-                .shadow(radius: 12)
+                .padding(10)
+                .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 14))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .shadow(radius: 14)
             VStack {
                 Spacer()
                 Text(String(format: "Slider: %.2f", vm.sliderValue))
@@ -371,10 +398,10 @@ struct SpectrometerSlider: View {
     var body: some View {
         GeometryReader { geo in
             let inset: CGFloat = 24
-            let trackWidth: CGFloat = 52
+            let trackWidth: CGFloat = 26
             let trackHeight: CGFloat = geo.size.height - inset * 2
             let trackCorner: CGFloat = 60
-            let knobDiameter: CGFloat = 44
+            let knobDiameter: CGFloat = 22
             let knobRadius: CGFloat = knobDiameter / 2
             let centerX: CGFloat = geo.size.width / 2
             let trackRect = CGRect(
