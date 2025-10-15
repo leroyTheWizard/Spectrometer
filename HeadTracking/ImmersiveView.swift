@@ -24,6 +24,7 @@ final class SpectrometerViewModel {
 struct ImmersiveView: View {
     @State private var largeSphere = ModelEntity.init(mesh: .generateSphere(radius: 30), materials: [SimpleMaterial(color: .clear, isMetallic: false)])
     @State private var vm = SpectrometerViewModel()
+    @State private var waveAudioController: AudioPlaybackController?
 
     @State private var timer: Timer?
 
@@ -32,7 +33,8 @@ struct ImmersiveView: View {
     private let containerPanel2 = Entity()
     private let containerPanelArm = Entity()
     
-    @State private var entityHummingbird: Entity?
+    @State private var entityMicrowave: Entity?
+    @State private var entityWave: Entity?
     
     // HandTracking
     var model: AppModel = .init()
@@ -100,8 +102,14 @@ struct ImmersiveView: View {
             largeSphere.scale *= .init(x: -1, y: 1, z: 1) // make it point inward
             content.add(largeSphere)
             
-            if let exhibitionEntity = try? await Entity(named: "Exhibition", in: realityKitContentBundle), let hummingbirdEntity = exhibitionEntity.findEntity(named: "Hummingbird") {
-                self.entityHummingbird = hummingbirdEntity
+            //get 3D model i guess
+            if let exhibitionEntity = try? await Entity(named: "Exhibition", in: realityKitContentBundle), let microwaveEntity = exhibitionEntity.findEntity(named: "Microwave") {
+                self.entityMicrowave = microwaveEntity
+                content.add(exhibitionEntity)
+            }
+            //get 3D model i guess
+            if let exhibitionEntity = try? await Entity(named: "Exhibition", in: realityKitContentBundle), let waveEntity = exhibitionEntity.findEntity(named: "Ex05Waves") {
+                self.entityWave = waveEntity
                 content.add(exhibitionEntity)
             }
         } attachments: {
@@ -156,6 +164,7 @@ struct ImmersiveView: View {
             } else {
                 setSphereVisibility(value: Float(newValue))
             }
+            
         }
     }
     
@@ -204,7 +213,8 @@ struct ImmersiveView: View {
             return
         }
         
-        entityHummingbird?.components[OpacityComponent.self]?.opacity = (0.2..<0.4).contains(newValue) ? 1 : 0
+        //entityHummingbird?.components[OpacityComponent.self]?.opacity = (0.2..<0.4).contains(newValue) ? 1 : 0
+        entityWave?.components[OpacityComponent.self]?.opacity = (0.2..<0.4).contains(newValue) ? 1 : 0
 
         switch newValue {
         case 0.0..<0.2:

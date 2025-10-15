@@ -10,7 +10,7 @@
 
 def Xform "Root"
 {
-    reorder nameChildren = ["Hummingbird", "Anchoring"]
+    reorder nameChildren = ["Anchoring", "Ex05Waves", "Microwave"]
     float3 xformOp:translate = (0, 0, 0)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
@@ -26,12 +26,14 @@ def Xform "Root"
         }
     }
 
-    def "Hummingbird" (
+    def "Ex05Waves" (
         active = true
-        prepend references = @Hummingbird.usdz@
+        references = @Ex05Waves.usdz@
     )
     {
-        float3 xformOp:scale = (0.01, 0.01, 0.01)
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (0.1, 0.001, 0.1)
+        float3 xformOp:translate = (0, 0, 0)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
         def RealityKitComponent "HierarchicalFade"
@@ -39,6 +41,104 @@ def Xform "Root"
             uniform token info:id = "RealityKit.HierarchicalFade"
             float opacity = 0
         }
+
+        over "MaterialEx05a"
+        {
+            int ui:nodegraph:realitykit:subgraphOutputs:stackingOrder = 3020
+
+            over "Image"
+            {
+                color3f inputs:default = (1, 1, 1) (
+                    colorSpace = "srgb_displayp3"
+                )
+                asset inputs:file = @Materials/Shimmer.png@
+                string inputs:filtertype = "linear"
+                float2 ui:nodegraph:node:pos = (622.0577, -224.04759)
+                int ui:nodegraph:node:stackingOrder = 3021
+            }
+
+            over "PreviewSurface"
+            {
+                float inputs:clearcoat
+                float inputs:metallic = 0.8
+                float3 inputs:normal
+                float inputs:opacity = 0.8
+                float inputs:opacityThreshold
+                float inputs:roughness = 0.1
+                int ui:nodegraph:node:stackingOrder = 3022
+                string[] ui:nodegraph:realitykit:node:attributesShowingChildren = ["Advanced", "inputs:clearcoatRoughness", "inputs:emissiveColor"]
+            }
+        }
+
+        over "Cylinder" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            rel material:binding = </Root/Ex05Waves/MaterialEx05a> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+        }
+
+        def RealityKitComponent "SpatialAudio"
+        {
+            uniform token info:id = "RealityKit.SpatialAudio"
+        }
+    }
+
+    def "Microwave" (
+        active = true
+        references = @Microwave_XYZ_School_Homework.usdz@
+    )
+    {
+        float3 xformOp:scale = (0.001, 0.001, 0.001)
+        float3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def RealityKitComponent "Anchoring" (
+            active = false
+        )
+        {
+            uniform token info:id = "RealityKit.Anchoring"
+
+            def RealityKitStruct "descriptor"
+            {
+                token alignment = "Horizontal"
+                token classification = "Table"
+                token type = "Plane"
+            }
+        }
+
+        over "Materials"
+        {
+            over "Material_182"
+            {
+                token outputs:mtlx:surface.connect = </Root/Microwave/Materials/Material_182/PreviewSurface.outputs:out>
+                token outputs:realitykit:vertex
+                token outputs:surface.connect = </Root/Microwave/Materials/Material_182/pbr_shader.outputs:surface>
+                float2 ui:nodegraph:realitykit:subgraphOutputs:pos = (0, 110.5)
+
+                over "pbr_shader" (
+                    active = true
+                )
+                {
+                }
+
+                def Shader "PreviewSurface" (
+                    active = false
+                )
+                {
+                    uniform token info:id = "ND_UsdPreviewSurface_surfaceshader"
+                    token outputs:out
+                    float2 ui:nodegraph:node:pos = (-255, 105)
+                }
+            }
+        }
+    }
+
+    def RealityKitAudioFile "_2510_MUI_SD_MicrowaveSound_mp3"
+    {
+        uniform asset file = @2510_MUI_SD_MicrowaveSound.mp3@
+        uniform bool shouldLoop = 1
     }
 }
 
